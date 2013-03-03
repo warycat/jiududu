@@ -9,6 +9,7 @@
 #import "DataViewController.h"
 
 @interface DataViewController ()
+@property (weak, nonatomic) IBOutlet UIImageView *imageView;
 
 @end
 
@@ -17,6 +18,8 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    self.imageView.contentMode = UIViewContentModeScaleAspectFit;
+    
 	// Do any additional setup after loading the view, typically from a nib.
 }
 
@@ -29,7 +32,16 @@
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    self.dataLabel.text = [self.dataObject description];
+    NSURL *fileURL = self.dataObject;
+    self.imageView.image = [UIImage imageWithContentsOfFile:fileURL.path];
 }
 
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
+{
+    return YES;
+}
+- (void)viewDidUnload {
+    [self setImageView:nil];
+    [super viewDidUnload];
+}
 @end

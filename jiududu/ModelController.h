@@ -7,6 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "Issue+NKIssue.h"
 
 @class DataViewController;
 
@@ -14,5 +15,7 @@
 
 - (DataViewController *)viewControllerAtIndex:(NSUInteger)index storyboard:(UIStoryboard *)storyboard;
 - (NSUInteger)indexOfViewController:(DataViewController *)viewController;
+
+@property (nonatomic, strong) Issue *issue;
 
 @end

@@ -7,9 +7,12 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "Issue+NKIssue.h"
 
 @interface RootViewController : UIViewController <UIPageViewControllerDelegate>
 
 @property (strong, nonatomic) UIPageViewController *pageViewController;
+
+@property (strong, nonatomic) Issue *issue;
 
 @end

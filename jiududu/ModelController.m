@@ -30,10 +30,24 @@
     self = [super init];
     if (self) {
         // Create the data model.
-        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-        _pageData = [[dateFormatter monthSymbols] copy];
     }
     return self;
+}
+
+- (NSArray *)pageData
+{
+    NSMutableArray *URLs = [NSMutableArray array];
+    NSURL *URL = self.issue.nkIssue.contentURL;
+    for (NSString *path in [[NSFileManager defaultManager] enumeratorAtPath:URL.path]) {
+        if ([path rangeOfString:@".jpg"].location == NSNotFound) {
+            continue;
+        }
+        [URLs addObject:[NSURL URLWithString:path relativeToURL:URL]];
+    }
+    NSArray *sortedURLs = [URLs sortedArrayUsingComparator:^NSComparisonResult(NSURL *obj1, NSURL *obj2) {
+        return [obj1.lastPathComponent compare:obj2.lastPathComponent options:NSNumericSearch];
+    }];
+    return sortedURLs;
 }
 
 - (DataViewController *)viewControllerAtIndex:(NSUInteger)index storyboard:(UIStoryboard *)storyboard
