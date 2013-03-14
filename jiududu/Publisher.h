@@ -11,7 +11,7 @@
 #import <NewsstandKit/NewsstandKit.h>
 
 @interface Publisher : NSObject<SKRequestDelegate, SKProductsRequestDelegate, SKPaymentTransactionObserver>
-
+@property (nonatomic, strong) NSString *issue;
 + (Publisher *)sharedPublisher;
 - (void)loadIssuesFromURL:(NSURL *)URL withHandler:(void (^)(NSDictionary *issues))handler;
 - (void)subscribeProductId:(NSString *)productId;

@@ -7,6 +7,7 @@
 //
 
 #import "AppDelegate.h"
+#import "Publisher.h"
 
 @implementation AppDelegate
 
@@ -14,10 +15,63 @@
 @synthesize managedObjectModel = _managedObjectModel;
 @synthesize persistentStoreCoordinator = _persistentStoreCoordinator;
 
+- (void)handlePayload:(NSDictionary *)payload
+{
+    NSLog(@"%@",payload);
+    NSString *issue = [payload objectForKey:@"issue"];
+    [Publisher sharedPublisher].issue = issue;
+    [[NSNotificationCenter defaultCenter]postNotificationName:@"content-available" object:nil userInfo:nil];
+}
+
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+    NSMutableDictionary *airshipConfigOptions = [[NSMutableDictionary alloc] init] ;
+    [airshipConfigOptions setValue:@"BO_9vhIZSJi0jbFxzikZxw" forKey:@"DEVELOPMENT_APP_KEY"];
+    [airshipConfigOptions setValue:@"dW80ZzCSQOCAsI_azPEUdA" forKey:@"DEVELOPMENT_APP_SECRET"];
+    [airshipConfigOptions setValue:@"22qK9IEHT1G1EnmQy3mvTw" forKey:@"PRODUCTION_APP_KEY"];
+    [airshipConfigOptions setValue:@"D5XhCrz2SAqOxOOc2IdTPA" forKey:@"PRODUCTION_APP_SECRET"];
+#ifdef DEBUG
+    [[NSUserDefaults standardUserDefaults]setBool: YES forKey:@"NKDontThrottleNewsstandContentNotifications"];
+    [airshipConfigOptions setValue:@"NO" forKey:@"APP_STORE_OR_AD_HOC_BUILD"];
+#else
+    [airshipConfigOptions setValue:@"YES" forKey:@"APP_STORE_OR_AD_HOC_BUILD"];
+#endif
+    //Create Airship options dictionary and add the required UIApplication launchOptions
+    NSMutableDictionary *takeOffOptions = [NSMutableDictionary dictionary];
+    [takeOffOptions setValue:launchOptions forKey:UAirshipTakeOffOptionsLaunchOptionsKey];
+    [takeOffOptions setValue:airshipConfigOptions forKey:UAirshipTakeOffOptionsAirshipConfigKey];
+    [UAPush setDefaultPushEnabledValue:NO];
+    [UAirship takeOff:takeOffOptions];
+    
+    // Set the icon badge to zero on startup (optional)
+    [[UAPush shared] resetBadge];
+    
+    // Register for remote notfications with the UA Library. This call is required.
+    [[UAPush shared] registerForRemoteNotificationTypes:(UIRemoteNotificationTypeBadge |
+                                                         UIRemoteNotificationTypeSound |
+                                                         UIRemoteNotificationTypeAlert |
+                                                         UIRemoteNotificationTypeNewsstandContentAvailability)];
+    
+    // Handle any incoming incoming push notifications.
+    // This will invoke `handleBackgroundNotification` on your UAPushNotificationDelegate.
+    [[UAPush shared] handleNotification:[launchOptions valueForKey:UIApplicationLaunchOptionsRemoteNotificationKey] applicationState:application.applicationState];
+    NSDictionary *payload = [launchOptions objectForKey:UIApplicationLaunchOptionsRemoteNotificationKey];
+    
+    [self handlePayload:payload];
     // Override point for customization after application launch.
     return YES;
+}
+
+- (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken {
+    // Updates the device token and registers the token with UA.
+    [[UAPush shared] registerDeviceToken:deviceToken];
+}
+
+-(void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo {
+    [[UAPush shared] handleNotification:userInfo applicationState:application.applicationState];
+    [[UAPush shared] resetBadge]; // zero badge after push received
+    // Now check if it is new content; if so we show an alert
+    [self handlePayload:userInfo];
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application
@@ -46,6 +100,8 @@
 {
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     [self saveContext];
+    [UAirship land];
+
 }
 
 - (void)saveContext

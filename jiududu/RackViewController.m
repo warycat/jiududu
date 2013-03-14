@@ -17,6 +17,7 @@
 @interface RackViewController ()
 @property (weak, nonatomic) IBOutlet iCarousel *iCarousel;
 @property (nonatomic, strong) AppDelegate *app;
+@property (nonatomic, strong) IBOutlet UIImageView *backgroundView;
 @end
 
 @implementation RackViewController
@@ -27,9 +28,29 @@
     return app;
 }
 
-- (void)viewDidLoad
+- (void)setupBackgroundImage
 {
-    [super viewDidLoad];
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
+        CGSize result = [[UIScreen mainScreen] bounds].size;
+        if (result.height == 480)
+        {
+            self.backgroundView.image = [UIImage imageNamed:@"Default.png"];
+        }
+        if (result.height == 568) {
+            self.backgroundView.image = [UIImage imageNamed:@"Default-568h.png"];
+        }
+    }
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        if (UIDeviceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation])) {
+            self.backgroundView.image = [UIImage imageNamed:@"Default-Portrait~ipad.png"];
+        }else{
+            self.backgroundView.image = [UIImage imageNamed:@"Default-Landscape~ipad.png"];
+        }
+    }
+}
+
+- (void)setupiCarousel
+{
     self.managedObjectContext = self.app.managedObjectContext;
     NSFetchRequest *fetchRequest = [NSFetchRequest fetchRequestWithEntityName:@"Issue"];
     fetchRequest.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"date" ascending:NO]];
@@ -47,9 +68,41 @@
     self.iCarousel.dataSource = self;
 }
 
-- (void)viewWillAppear:(BOOL)animated
+- (void)viewDidLoad
 {
+    [super viewDidLoad];
+    [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(updateFeed) name:@"content-available" object:nil];
+    [self setupBackgroundImage];
+    [self setupiCarousel];
+}
+
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+    [self.iCarousel reloadItemAtIndex:self.iCarousel.currentItemIndex animated:YES];
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
+        return;
+    }
+    switch (toInterfaceOrientation) {
+        case UIInterfaceOrientationLandscapeLeft:
+        case UIInterfaceOrientationLandscapeRight:
+            self.backgroundView.image = [UIImage imageNamed:@"Default-Landscape~ipad.png"];
+            break;
+        case UIInterfaceOrientationPortrait:
+        case UIInterfaceOrientationPortraitUpsideDown:
+            self.backgroundView.image = [UIImage imageNamed:@"Default-Portrait~ipad.png"];
+            break;
+        default:
+            break;
+    }
+}
+
+- (void)updateFeed
+{
+#ifdef DEBUG
     NSURL *URL = [NSURL URLWithString:@"http://dev.warycat.com/jiududu/issues.php"];
+#else
+    NSURL *URL = [NSURL URLWithString:@"http://aws.warycat.com/jiududu/issues.php"];
+#endif
     [[Publisher sharedPublisher]loadIssuesFromURL:URL withHandler:^(NSDictionary *feed) {
         NSArray *entry = [feed objectForKey:@"Entry"];
         NSString *host = [feed objectForKey:@"Host"];
@@ -65,6 +118,11 @@
             fetchRequest.predicate = predicate;
             Issue *issue = [self.managedObjectContext executeFetchRequest:fetchRequest error:nil].lastObject;
             if (issue) {
+                if ([issue.nkIssue.name isEqualToString:[Publisher sharedPublisher].issue] && issue.nkIssue.status == NKIssueContentStatusNone) {
+                    [[UIApplication sharedApplication] setNewsstandIconImage:[UIImage imageWithData:issue.cover]];
+                    [issue download];
+                    [Publisher sharedPublisher].issue = nil;
+                }
                 NSLog(@"%@ exist",issue.name);
                 continue ;
             }
@@ -73,7 +131,8 @@
             NSURLRequest *coverRequest = [NSURLRequest requestWithURL:coverURL];
             [NSURLConnection sendAsynchronousRequest:coverRequest queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *response, NSData *data, NSError *error) {
                 NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
-                if (http.statusCode == 200) {
+                UIImage *image = [UIImage imageWithData:data];
+                if (http.statusCode == 200 && image) {
                     Issue *issue = [NSEntityDescription insertNewObjectForEntityForName:@"Issue"
                                                                  inManagedObjectContext:self.managedObjectContext];
                     issue.cover = data;
@@ -83,11 +142,20 @@
                     issue.version = version;
                     issue.title = title;
                     [self.app saveContext];
+                    if ([issue.nkIssue.name isEqualToString:[Publisher sharedPublisher].issue] && issue.nkIssue.status == NKIssueContentStatusNone) {
+                        [[UIApplication sharedApplication] setNewsstandIconImage:image];
+                        [issue download];
+                        [Publisher sharedPublisher].issue = nil;
+                    }
                 }
             }];
         }
     }];
-    //[[Publisher sharedPublisher] subscribeProductId:@"com.warycat.jiududu.free"];
+}
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    [self updateFeed];
 }
 
 - (void)didReceiveMemoryWarning
@@ -173,11 +241,6 @@
     [self.iCarousel reloadData];
 }
 
-- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
-{
-    [self.iCarousel reloadItemAtIndex:self.iCarousel.currentItemIndex animated:YES];
-}
-
 - (void)carousel:(iCarousel *)carousel didSelectItemAtIndex:(NSInteger)index
 {
     Issue *issue = [self.fetchedResultsController.fetchedObjects objectAtIndex:index];
@@ -190,12 +253,10 @@
     if ([issue.status isEqualToString:@"Downloading"]) {
         NSLog(@"downloading");
         BlockActionSheet *action = [[BlockActionSheet alloc]initWithTitle:nil];
-        [action setDestructiveButtonWithTitle:@"Delete" block:^{
-            [self.presentingViewController dismissViewControllerAnimated:YES completion:^{
-                [issue remove];
-            }];
+        [action setDestructiveButtonWithTitle:NSLocalizedString(@"Delete", nil) block:^{
+            [issue remove];
         }];
-        [action setCancelButtonWithTitle:@"Cancel" block:nil];
+        [action setCancelButtonWithTitle:NSLocalizedString(@"Cancel",nil) block:nil];
         [action showInView:self.view];
         return;
     }
@@ -209,10 +270,10 @@
         formatter.dateStyle = NSDateFormatterLongStyle;
         formatter.timeStyle = NSDateFormatterNoStyle;
         BlockAlertView *alertView = [BlockAlertView alertWithTitle:[formatter stringFromDate:issue.date] message:issue.title];
-        [alertView setCancelButtonWithTitle:@"Cancel" block:^{
+        [alertView setCancelButtonWithTitle:NSLocalizedString(@"Cancel", nil) block:^{
             NSLog(@"cancel");
         }];
-        [alertView setDestructiveButtonWithTitle:@"Delete" block:^{
+        [alertView setDestructiveButtonWithTitle:NSLocalizedString(@"Delete", nil) block:^{
             [issue remove];
         }];
         NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey: @"CFBundleShortVersionString"];
@@ -221,7 +282,7 @@
                 [[UIApplication sharedApplication]openURL:[NSURL URLWithString:@"https://itunes.apple.com/us/app/jiu-dou-du/id604696222?ls=1&mt=8"]];
             }];
         }else{
-            [alertView addButtonWithTitle:@"Open" block:^{
+            [alertView addButtonWithTitle:NSLocalizedString(@"Open", nil) block:^{
                 [self performSegueWithIdentifier:@"OpenSegue" sender:issue];
             }];
         }
@@ -276,7 +337,7 @@
     {
         return YES;
     }else{
-        return toInterfaceOrientation != UIInterfaceOrientationPortraitUpsideDown;
+        return toInterfaceOrientation == UIInterfaceOrientationPortrait;
     }
 }
 

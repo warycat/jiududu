@@ -10,6 +10,8 @@
 #import "ModelController.h"
 #import "DataViewController.h"
 #import "BlockActionSheet.h"
+#import "Publisher.h"
+#import <UAPush.h>
 
 @interface RootViewController ()
 @property (readonly, strong, nonatomic) ModelController *modelController;
@@ -50,18 +52,17 @@
     self.view.gestureRecognizers = gestureRecognizers;
 }
 
-- (void)viewWillAppear:(BOOL)animated
-{
-    
-}
-
 - (void)tap:(UITapGestureRecognizer *)sender
 {
     BlockActionSheet *action = [[BlockActionSheet alloc]initWithTitle:nil];
-    [action addButtonWithTitle:@"Exit" block:^{
+    [action addButtonWithTitle:NSLocalizedString(@"Subscribe", nil) block:^{
+        [[UAPush shared] setPushEnabled:YES];
+        [[Publisher sharedPublisher]subscribeProductId:@"com.warycat.jiududu.free"];
+    }];
+    [action addButtonWithTitle:NSLocalizedString(@"Exit", nil) block:^{
         [self.presentingViewController dismissViewControllerAnimated:YES completion:nil];
     }];
-    [action setCancelButtonWithTitle:@"Cancel" block:nil];
+    [action setCancelButtonWithTitle:NSLocalizedString(@"Cancel", nil) block:nil];
     [action showInView:self.view];
 }
 

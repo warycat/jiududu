@@ -26,6 +26,9 @@
     [NSURLConnection sendAsynchronousRequest:request
                                        queue:[NSOperationQueue mainQueue]
                            completionHandler:^(NSURLResponse *response, NSData *data, NSError *error) {
+                               if (!data) {
+                                   return ;
+                               }
                                NSDictionary *issues = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
                                handler(issues);
                            }];
@@ -41,17 +44,17 @@
 
 - (void)requestDidFinish:(SKRequest *)request
 {
-    NSLog(@"%s",(char *)_cmd);
+    NSLog(@"%s",sel_getName(_cmd));
 }
 
 - (void)request:(SKRequest *)request didFailWithError:(NSError *)error
 {
-    NSLog(@"%s %@",(char *)_cmd, error);
+    NSLog(@"%s %@",sel_getName(_cmd), error);
 }
 
 - (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response
 {
-    NSLog(@"%s",(char *)_cmd);
+    NSLog(@"%s",sel_getName(_cmd));
     NSLog(@"%@",response.products);
     for (SKProduct *product in response.products) {
         NSLog(@"%@",product.productIdentifier);
@@ -62,7 +65,7 @@
 
 - (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions
 {
-    NSLog(@"%s",(char *)_cmd);
+    NSLog(@"%s",sel_getName(_cmd));
     for (SKPaymentTransaction *transaction in transactions) {
         switch (transaction.transactionState) {
             case SKPaymentTransactionStateFailed:

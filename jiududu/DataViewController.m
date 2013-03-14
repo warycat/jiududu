@@ -19,7 +19,7 @@
 {
     [super viewDidLoad];
     self.imageView.contentMode = UIViewContentModeScaleAspectFit;
-    
+    NSLog(@"%@",[UAirship shared].deviceToken);
 	// Do any additional setup after loading the view, typically from a nib.
 }
 

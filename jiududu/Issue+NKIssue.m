@@ -57,6 +57,14 @@
 
 - (void)connectionDidFinishDownloading:(NSURLConnection *)connection destinationURL:(NSURL *)destinationURL
 {
+    UILocalNotification *notification = [[UILocalNotification alloc]init];
+    notification.soundName = UILocalNotificationDefaultSoundName;
+    notification.alertAction = NSLocalizedString(@"Open", nil);
+    notification.alertBody = self.title;
+    notification.applicationIconBadgeNumber = 1;
+    UIApplication *app = [UIApplication sharedApplication];
+    [app presentLocalNotificationNow:notification];
+
     ZipArchive *archive = [[ZipArchive alloc]init];
     archive.progressBlock = ^(int percentage, int filesProcessed, int numFiles){
         dispatch_async(dispatch_get_main_queue(), ^{
